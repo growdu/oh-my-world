@@ -1,0 +1,77 @@
+basePath: /api
+definitions:
+  main.Link:
+    properties:
+      description:
+        description: Image       datatypes.JSON `json:"image"`
+        type: string
+      id:
+        type: integer
+      url:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 使用 Gin + GORM + PostgreSQL 的链接管理 API。
+  title: Link Management API
+  version: "1.0"
+paths:
+  /links:
+    get:
+      consumes:
+      - application/json
+      description: 获取数据库中存储的所有链接信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/main.Link'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 获取所有链接
+      tags:
+      - Links
+    post:
+      consumes:
+      - application/json
+      description: 向数据库添加一个新的链接
+      parameters:
+      - description: 链接信息
+        in: body
+        name: link
+        required: true
+        schema:
+          $ref: '#/definitions/main.Link'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 添加新链接
+      tags:
+      - Links
+swagger: "2.0"
