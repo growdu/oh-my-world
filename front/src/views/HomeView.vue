@@ -14,22 +14,14 @@
       <el-dialog v-model="dialogVisible" title="添加新链接" width="400px">
         <el-form>
           <el-form-item label="图片">
-            <el-upload
-              class="upload-demo"
-              action=""
-              :show-file-list="false"
-              :before-upload="() => false"
-              :on-change="handleUpload"
-            >
-              <el-button type="primary">选择图片</el-button>
-            </el-upload>
+            <el-input v-model="newLink.image" placeholder="输入图片 URL"></el-input>
             <el-image v-if="newLink.image" :src="newLink.image" class="preview-image"></el-image>
           </el-form-item>
           <el-form-item label="描述">
             <el-input v-model="newLink.description" placeholder="输入描述"></el-input>
           </el-form-item>
           <el-form-item label="链接">
-            <el-input v-model="newLink.url" placeholder="输入URL"></el-input>
+            <el-input v-model="newLink.url" placeholder="输入网站URL"></el-input>
           </el-form-item>
         </el-form>
         <template #footer>
@@ -42,7 +34,7 @@
       <div class="card-container">
         <el-card v-for="link in allLinks" :key="link.id" class="card" @click="goToLink(link.url)">
           <div class="card-content">
-            <el-image :src="link.image" class="card-image"></el-image>
+            <el-image v-if="link.image" :src="link.image" class="card-image" fit="cover"></el-image>
             <p class="card-description">{{ link.description }}</p>
           </div>
         </el-card>
@@ -52,107 +44,51 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
-const links = ref([
-  {
-    id: 1,
-    image: 'https://via.placeholder.com/100',
-    description: 'Google',
-    url: 'https://www.google.com',
-  },
-  {
-    id: 2,
-    image: 'https://via.placeholder.com/100',
-    description: 'Baidu',
-    url: 'https://www.baidu.com',
-  },
-  {
-    id: 3,
-    image: 'https://via.placeholder.com/100',
-    description: 'GitHub',
-    url: 'https://github.com',
-  },
-  {
-    id: 4,
-    image: 'https://via.placeholder.com/100',
-    description: 'YouTube',
-    url: 'https://www.youtube.com',
-  },
-  {
-    id: 5,
-    image: 'https://via.placeholder.com/100',
-    description: 'Facebook',
-    url: 'https://www.facebook.com',
-  },
-  {
-    id: 6,
-    image: 'https://via.placeholder.com/100',
-    description: 'Twitter',
-    url: 'https://www.twitter.com',
-  },
-  {
-    id: 7,
-    image: 'https://via.placeholder.com/100',
-    description: 'LinkedIn',
-    url: 'https://www.linkedin.com',
-  },
-  {
-    id: 8,
-    image: 'https://via.placeholder.com/100',
-    description: 'Instagram',
-    url: 'https://www.instagram.com',
-  },
-  {
-    id: 9,
-    image: 'https://via.placeholder.com/100',
-    description: 'Reddit',
-    url: 'https://www.reddit.com',
-  },
-  {
-    id: 10,
-    image: 'https://via.placeholder.com/100',
-    description: 'Netflix',
-    url: 'https://www.netflix.com',
-  },
-])
-
-const allLinks = ref([...links.value])
-
+const allLinks = ref([])
 const newLink = ref({ image: '', description: '', url: '' })
 const dialogVisible = ref(false)
 
-// 处理图片上传
-const handleUpload = (file) => {
-  const reader = new FileReader()
-  reader.readAsDataURL(file.raw)
-  reader.onload = () => {
-    newLink.value.image = reader.result // Base64 存储图片
+// 获取所有链接
+const fetchLinks = async () => {
+  try {
+    const response = await axios.get('http://117.50.177.215:8092/api/v1/links')
+    allLinks.value = response.data
+  } catch (error) {
+    ElMessage.error('无法加载链接')
   }
 }
 
 // 添加新链接
-const addLink = () => {
+const addLink = async () => {
   if (!newLink.value.image || !newLink.value.description || !newLink.value.url) {
     ElMessage.error('请填写完整信息！')
     return
   }
-  const id = allLinks.value.length + 1
-  allLinks.value.unshift({ id, ...newLink.value })
-  newLink.value = { image: '', description: '', url: '' }
-  dialogVisible.value = false
-  ElMessage.success('链接添加成功！')
+  try {
+    await axios.post('http://117.50.177.215:8092/api/v1/links', newLink.value)
+    ElMessage.success('链接添加成功！')
+    fetchLinks()
+    dialogVisible.value = false
+    newLink.value = { image: '', description: '', url: '' }
+  } catch (error) {
+    ElMessage.error('添加链接失败')
+  }
 }
 
 // 点击卡片跳转
 const goToLink = (url) => {
   window.open(url, '_blank')
 }
+
+// 初始化时加载链接
+onMounted(fetchLinks)
 </script>
 
 <style scoped>
-/******** 标题样式 ********/
 .title {
   text-align: center;
   font-size: 24px;
@@ -160,13 +96,11 @@ const goToLink = (url) => {
   margin-bottom: 20px;
 }
 
-/******** 操作按钮 ********/
 .action-buttons {
   text-align: right;
   margin-bottom: 20px;
 }
 
-/******** 管理按钮 ********/
 .add-link-btn {
   transition:
     background-color 0.3s ease,
@@ -178,13 +112,10 @@ const goToLink = (url) => {
   transform: scale(1.1);
 }
 
-/******** 卡片布局 ********/
 .card-container {
   display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr)); /* 自动调整列数 */
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 20px;
-  width: 100%;
-  margin: 0 auto;
 }
 
 .card {
@@ -220,20 +151,10 @@ const goToLink = (url) => {
   font-weight: bold;
 }
 
-/******** 预览图片 ********/
 .preview-image {
   width: 100px;
   height: 100px;
   margin-top: 10px;
   border-radius: 10px;
-}
-
-/******** 弹窗样式 ********/
-.el-dialog {
-  transition: transform 0.3s ease-in-out;
-}
-
-.el-dialog__wrapper {
-  overflow: hidden;
 }
 </style>
