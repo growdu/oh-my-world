@@ -4,11 +4,11 @@
       <h1 class="title">💻 Growdu 的计算机世界 🌍</h1>
 
       <!-- 管理按钮 -->
-      <div class="action-buttons">
+      <!-- <div class="action-buttons">
         <el-button type="primary" class="add-link-btn" @click="dialogVisible = true">
           添加链接
         </el-button>
-      </div>
+      </div> -->
 
       <!-- 添加链接对话框 -->
       <el-dialog v-model="dialogVisible" title="添加新链接" width="400px">
