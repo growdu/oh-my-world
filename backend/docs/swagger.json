@@ -6,10 +6,10 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
-    "basePath": "/api",
+    "host": "localhost:8092",
+    "basePath": "/api/v1",
     "paths": {
-        "/links": {
+        "/api/v1/links": {
             "get": {
                 "description": "获取数据库中存储的所有链接信息",
                 "consumes": [

@@ -5,9 +5,8 @@
 ```sql
 CREATE TABLE links (
     id SERIAL PRIMARY KEY,
-    image TEXT,
-    description TEXT,
-    url TEXT
+    image TEXT NOT NULL, 
+    description TEXT NOT NULL,
+    url TEXT NOT NULL
 );
-
 ```

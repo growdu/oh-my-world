@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/links": {
+        "/api/v1/links": {
             "get": {
                 "description": "获取数据库中存储的所有链接信息",
                 "consumes": [
@@ -124,8 +124,8 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
-	BasePath:         "/api",
+	Host:             "localhost:8092",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Link Management API",
 	Description:      "使用 Gin + GORM + PostgreSQL 的链接管理 API。",

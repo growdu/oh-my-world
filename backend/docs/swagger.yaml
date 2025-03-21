@@ -1,4 +1,4 @@
-basePath: /api
+basePath: /api/v1
 definitions:
   main.Link:
     properties:
@@ -10,14 +10,14 @@ definitions:
       url:
         type: string
     type: object
-host: localhost:8080
+host: localhost:8092
 info:
   contact: {}
   description: 使用 Gin + GORM + PostgreSQL 的链接管理 API。
   title: Link Management API
   version: "1.0"
 paths:
-  /links:
+  /api/v1/links:
     get:
       consumes:
       - application/json

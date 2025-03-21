@@ -1,37 +1,34 @@
 package main
 
 import (
-	"log"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/postgres"
+    "gorm.io/driver/postgres"
 	"gorm.io/gorm"
-
 	"github.com/swaggo/gin-swagger"
     swaggerFiles "github.com/swaggo/files"
-
-	//"gorm.io/datatypes"
-
-	_ "api/docs" // 引入生成的swagger文档
+	"log"
+	"net/http"
+	"github.com/gin-contrib/cors"
+    _ "api/docs" // 引入生成的swagger文档
 )
 
 // @title Link Management API
 // @version 1.0
 // @description 使用 Gin + GORM + PostgreSQL 的链接管理 API。
 // @host localhost:8092
-// @BasePath /api
+// @BasePath /api/v1
 
 // 数据库连接
 var db *gorm.DB
 
 // Link 模型
 type Link struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	//Image       datatypes.JSON `json:"image"`
-	Description string         `json:"description"`
-	URL         string         `json:"url"`
+    ID          uint   `json:"id"`
+    Image       string `json:"image"`  // 使用 BYTEA 类型来存储图片数据
+    Description string `json:"description"`
+    URL         string `json:"url"`
 }
+
 
 // 初始化数据库
 func initDB() {
@@ -51,7 +48,7 @@ func initDB() {
 // @Produce  json
 // @Success 200 {array} Link
 // @Failure 500 {object} map[string]string
-// @Router /links [get]
+// @Router /api/v1/links [get]
 func getLinks(c *gin.Context) {
 	var links []Link
 	if err := db.Find(&links).Error; err != nil {
@@ -61,22 +58,29 @@ func getLinks(c *gin.Context) {
 	c.JSON(http.StatusOK, links)
 }
 
-// @Summary 添加新链接
-// @Description 向数据库添加一个新的链接
-// @Tags Links
-// @Accept  json
-// @Produce  json
-// @Param link body Link true "链接信息"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /links [post]
+// @Summary Add a new link
+// @Description Upload a new link with an image
+// @Tags links
+// @Accept multipart/form-data
+// @Produce json
+// @Param image formData file true "Image File"
+// @Param description formData string true "Link Description"
+// @Param url formData string true "Link URL"
+// @Success 200 {object} gin.H{"message": "Link added successfully", "link": Link}
+// @Failure 400 {object} gin.H{"error": "Invalid input"}
+// @Failure 500 {object} gin.H{"error": "Unable to add link"}
+// @Router /api/v1/links [post]
 func addLink(c *gin.Context) {
 	var newLink Link
+
+	// 解析 JSON
 	if err := c.ShouldBindJSON(&newLink); err != nil {
+		log.Println("JSON解析失败:", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
+	
+    // 存储链接信息到数据库
 	if err := db.Create(&newLink).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to add link"})
 		return
@@ -84,13 +88,17 @@ func addLink(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Link added successfully", "link": newLink})
 }
 
+
 func main() {
 	initDB()
 
 	r := gin.Default()
 
+    // CORS 配置
+	r.Use(cors.Default())
+
 	// 注册 API 路由
-	api := r.Group("/api")
+	api := r.Group("/api/v1")
 	{
 		api.GET("/links", getLinks)
 		api.POST("/links", addLink)
