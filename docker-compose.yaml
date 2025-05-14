@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: double+2=4
+      POSTGRES_DB: world
+    ports:
+      - "5432:5432"
+    volumes:
+      - /home/world_pg_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  api:
+    build:
+      context: ./backend
+    container_name: gin_api
+    ports:
+      - "8092:8092"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: double+2=4
+      DB_NAME: world
+      PORT: 8092
+    networks:
+      - backend
+      
+  nginx:
+    image: nginx:latest
+    container_name: nginx_frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./front/dist:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge

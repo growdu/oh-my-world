@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"github.com/gin-contrib/cors"
     _ "api/docs" // 引入生成的swagger文档
+	"fmt"
+	"os"
 )
 
 // @title Link Management API
@@ -32,13 +34,23 @@ type Link struct {
 
 // 初始化数据库
 func initDB() {
-	dsn := "host=localhost user=postgres password=double+2=4 dbname=world port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+		host, user, password, dbname, port,
+	)
+
 	var err error
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("failed to connect to database", err)
 	}
-	db.AutoMigrate(&Link{}) // 自动迁移
+	db.AutoMigrate(&Link{})
 }
 
 // @Summary 获取所有链接
@@ -92,6 +104,8 @@ func addLink(c *gin.Context) {
 func main() {
 	initDB()
 
+	port := os.Getenv("PORT")
+
 	r := gin.Default()
 
     // CORS 配置
@@ -107,6 +121,12 @@ func main() {
 	// 集成 Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	if port == "" {
+		port = "8092"
+	}
 	// 启动服务器
-	r.Run(":8092")
+	err := r.Run(":" + port)
+	if err != nil {
+		panic(err)
+	}
 }
