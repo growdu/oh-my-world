@@ -1,0 +1,14 @@
+{
+    "database": {
+        "host": "growdu.cn",
+        "port": "8106",
+        "user": "postgres",
+        "password": "double+2=4",
+        "dbname": "world",
+        "sslmode": "disable",
+        "timezone": "Asia/Shanghai"
+    },
+    "server": {
+        "port": "8092"
+    }
+} 
