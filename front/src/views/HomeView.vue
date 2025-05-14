@@ -1,8 +1,11 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { marked } from 'marked'
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 
 const router = useRouter()
 const isAdmin = ref(localStorage.getItem('isAdmin') === 'true')
@@ -120,12 +123,31 @@ const deleteLink = async (link) => {
 }
 
 const goToLink = (url) => {
-  window.open(url, '_blank')
+  let finalUrl = url
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    finalUrl = 'http://' + url
+  }
+  //window.location.href = finalUrl
+  window.open(finalUrl, '_blank')
 }
 
 const exitLogin = () => {
   localStorage.removeItem('isAdmin')
+  isAdmin.value = false
+  router.push('/')
 }
+
+const renderMarkdown = (text) => {
+  return marked(text)
+}
+
+// 监听路由变化
+watch(
+  () => router.currentRoute.value,
+  () => {
+    fetchLinks()
+  }
+)
 
 onMounted(fetchLinks)
 </script>
@@ -140,14 +162,38 @@ onMounted(fetchLinks)
         <el-button type="danger" @click="exitLogin">退出登录</el-button>
       </div>
 
-      <el-dialog v-model="dialogVisible" title="添加新链接" width="400px">
+      <el-dialog v-model="dialogVisible" title="添加新链接" width="800px">
         <el-form>
           <el-form-item label="图片">
             <el-input v-model="newLink.image" placeholder="图片URL" />
             <el-image v-if="newLink.image" :src="newLink.image" class="preview-image" />
           </el-form-item>
           <el-form-item label="描述">
-            <el-input v-model="newLink.description" placeholder="描述" />
+            <div class="markdown-editor-container">
+              <MdEditor
+                v-model="newLink.description"
+                preview
+                language="zh-CN"
+                :toolbars="[
+                  'bold',
+                  'underline',
+                  'italic',
+                  'strikeThrough',
+                  'title',
+                  'sub',
+                  'sup',
+                  'quote',
+                  'unorderedList',
+                  'orderedList',
+                  'codeRow',
+                  'code',
+                  'link',
+                  'image',
+                  'table',
+                  'preview'
+                ]"
+              />
+            </div>
           </el-form-item>
           <el-form-item label="链接">
             <el-input v-model="newLink.url" placeholder="URL" />
@@ -168,7 +214,7 @@ onMounted(fetchLinks)
         >
           <div class="card-content">
             <el-image v-if="link.image" :src="link.image" class="card-image" fit="cover" />
-            <p class="card-description">{{ link.description }}</p>
+            <div class="card-description markdown-body" v-html="renderMarkdown(link.description)"></div>
             <el-button
               v-if="isAdmin"
               size="small"
@@ -221,7 +267,72 @@ onMounted(fetchLinks)
   border-radius: 10px;
 }
 .card-description {
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px;
+  width: 100%;
+}
+
+/* 添加 Markdown 样式 */
+:deep(.markdown-body) {
+  color: #2c3e50;
+}
+
+:deep(.markdown-body h1) {
+  font-size: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+:deep(.markdown-body h2) {
+  font-size: 1.3em;
+  margin-bottom: 0.4em;
+}
+
+:deep(.markdown-body p) {
+  margin-bottom: 0.8em;
+}
+
+:deep(.markdown-body a) {
+  color: #409EFF;
+  text-decoration: none;
+}
+
+:deep(.markdown-body code) {
+  background-color: #f8f8f8;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+:deep(.markdown-body pre) {
+  background-color: #f8f8f8;
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+:deep(.markdown-body ul, .markdown-body ol) {
+  padding-left: 2em;
+  margin-bottom: 1em;
+}
+
+:deep(.markdown-body blockquote) {
+  border-left: 4px solid #dfe2e5;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #666;
+}
+
+.markdown-editor-container {
+  width: 100%;
+  min-height: 300px;
+}
+
+:deep(.md-editor) {
+  height: 300px;
+}
+
+:deep(.md-editor-preview) {
+  background-color: #fff;
 }
 </style>
