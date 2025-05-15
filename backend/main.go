@@ -54,6 +54,7 @@ type Link struct {
 	URL         string `json:"url" gorm:"not null"`
 	Description string `json:"description" gorm:"type:text"`
 	Category    string `json:"category" gorm:"not null"`
+	CategoryID  uint   `json:"category_id" gorm:"not null"`
 	VisitCount  int    `json:"visits" gorm:"default:0"`
 }
 
@@ -331,6 +332,15 @@ func createLink(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name, image, url and category are required"})
 		return
 	}
+
+	var category Category
+	err := db.Where("name = ?", link.Category).First(&category).Error
+	if err != nil {
+		// 如果找不到，可能需要创建，或者返回错误
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+
+	link.CategoryID = category.ID
 
 	if err := db.Create(&link).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
