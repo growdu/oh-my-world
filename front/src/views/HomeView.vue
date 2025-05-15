@@ -24,24 +24,6 @@ const visibleLinks = computed(() => {
   return allLinks.value
 })
 
-const popularLinks = computed(() => {
-  return [...allLinks.value]
-    .sort((a, b) => (b.visits || 0) - (a.visits || 0))
-    .slice(0, 5)
-})
-
-const categories = ref([
-  { name: '编程语言', count: 0 },
-  { name: '开发工具', count: 0 },
-  { name: '框架', count: 0 },
-  { name: '数据库', count: 0 },
-  { name: '运维', count: 0 },
-  { name: '前端', count: 0 },
-  { name: '后端', count: 0 },
-  { name: '人工智能', count: 0 },
-])
-
-const selectedCategory = ref('全部')
 
 const dialogVisible = ref(false)
 const useMarkdown = ref(false)
@@ -140,11 +122,6 @@ const handleKeydown = (e) => {
   }
 }
 
-const updateCategoryCounts = () => {
-  categories.value.forEach(category => {
-    category.count = allLinks.value.filter(link => link.category === category.name).length
-  })
-}
 
 const swiperModules = [EffectCoverflow, Mousewheel, Autoplay]
 
