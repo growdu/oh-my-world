@@ -3,6 +3,6 @@ yarn run build-only
 rm -rf nginx/dist_bak
 if [ -e "nginx/dist" ]
 then
-	cp nginx/dist nginx/dist_bak
+	cp -r nginx/dist nginx/dist_bak
 fi
-cp dist nginx/ -r
+cp dist nginx/dist -r

@@ -68,12 +68,12 @@ type Category struct {
 func loadConfig() Config {
 	// 首先尝试从环境变量读取
 	dbConfig := Config{}
-	dbConfig.Database.Host = os.Getenv("DB_HOST")
+	/*dbConfig.Database.Host = os.Getenv("DB_HOST")
 	dbConfig.Database.Port = os.Getenv("DB_PORT")
 	dbConfig.Database.User = os.Getenv("DB_USER")
 	dbConfig.Database.Password = os.Getenv("DB_PASSWORD")
 	dbConfig.Database.DBName = os.Getenv("DB_NAME")
-	dbConfig.Server.Port = os.Getenv("PORT")
+	dbConfig.Server.Port = os.Getenv("PORT")*/
 
 	// 如果环境变量不完整，尝试从配置文件读取
 	if dbConfig.Database.Host == "" || dbConfig.Database.Port == "" ||
@@ -130,6 +130,12 @@ func loadConfig() Config {
 		}
 		if dbConfig.Database.TimeZone == "" {
 			dbConfig.Database.TimeZone = fileConfig.Database.TimeZone
+		}
+		if dbConfig.Database.SSLMode == "" {
+			dbConfig.Database.SSLMode = "disable"
+		}
+		if dbConfig.Database.TimeZone == "" {
+			dbConfig.Database.TimeZone = "Asia/Shanghai"
 		}
 	}
 

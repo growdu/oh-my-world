@@ -3,7 +3,7 @@
         "host": "db",
         "port": "5432",
         "user": "postgres",
-        "password": "word",
+        "password": "xxxx",
         "dbname": "world",
         "sslmode": "disable",
         "timezone": "Asia/Shanghai",
