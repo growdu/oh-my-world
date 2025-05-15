@@ -146,6 +146,38 @@ const updateCategoryCounts = () => {
   })
 }
 
+const swiperModules = [EffectCoverflow, Mousewheel, Autoplay]
+
+const categories = ref([
+  { name: '编程语言', count: 0 },
+  { name: '开发工具', count: 0 },
+  { name: '框架', count: 0 },
+  { name: '数据库', count: 0 },
+  { name: '运维', count: 0 },
+  { name: '前端', count: 0 },
+  { name: '后端', count: 0 },
+  { name: '人工智能', count: 0 },
+])
+
+const popularLinks = computed(() => {
+  return [...allLinks.value]
+    .sort((a, b) => (b.visits || 0) - (a.visits || 0))
+    .slice(0, 5)
+})
+
+const selectedCategory = ref('全部')
+
+const filteredLinks = computed(() => {
+  if (selectedCategory.value === '全部') return allLinks.value
+  return allLinks.value.filter(link => link.category === selectedCategory.value)
+})
+
+const updateCategoryCounts = () => {
+  categories.value.forEach(category => {
+    category.count = allLinks.value.filter(link => link.category === category.name).length
+  })
+}
+
 const fetchLinks = async () => {
   loading.value = true
   const useMock = import.meta.env.VITE_USE_MOCK === 'true'
