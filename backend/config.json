@@ -6,9 +6,23 @@
         "password": "double+2=4",
         "dbname": "world",
         "sslmode": "disable",
-        "timezone": "Asia/Shanghai"
+        "timezone": "Asia/Shanghai",
+        "path": "./data.db",
+        "auto_migrate": true
     },
     "server": {
-        "port": "8092"
+        "port": "8092",
+        "host": "0.0.0.0"
+    },
+    "features": {
+        "enable_categories": true,
+        "enable_visit_count": true,
+        "enable_hot_links": true
+    },
+    "ui": {
+        "site_title": "growdu",
+        "card_width": "600px",
+        "sidebar_left_width": "180px",
+        "sidebar_right_width": "250px"
     }
 } 

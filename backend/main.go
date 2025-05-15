@@ -4,16 +4,16 @@ import (
 	_ "api/docs" // 引入生成的swagger文档
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
-	"github.com/swaggo/gin-swagger"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -49,17 +49,18 @@ var (
 // Link 模型
 type Link struct {
 	ID          uint   `json:"id" gorm:"primarykey"`
-	Image       string `json:"image"`
-	Description string `json:"description"`
-	URL         string `json:"url"`
-	Category    string `json:"category"`
-	Visits      int    `json:"visits" gorm:"default:0"`
+	Name        string `json:"name" gorm:"not null"`
+	Image       string `json:"image" gorm:"not null"`
+	URL         string `json:"url" gorm:"not null"`
+	Description string `json:"description" gorm:"type:text"`
+	Category    string `json:"category" gorm:"not null"`
+	VisitCount  int    `json:"visits" gorm:"default:0"`
 }
 
 // Category 模型
 type Category struct {
-	Name  string `json:"name" gorm:"primarykey"`
-	Count int    `json:"count" gorm:"default:0"`
+	ID   uint   `json:"id" gorm:"primarykey"`
+	Name string `json:"name" gorm:"not null;unique"`
 }
 
 // 加载配置
@@ -91,7 +92,7 @@ func loadConfig() Config {
 		}
 
 		// 读取配置文件
-		file, err := ioutil.ReadFile(configPath)
+		file, err := os.ReadFile(configPath)
 		if err != nil {
 			log.Fatal("无法读取配置文件:", err)
 		}
@@ -164,18 +165,54 @@ func initDB() {
 
 	log.Println("Connected to database successfully")
 
-	// 自动迁移
-	err = db.AutoMigrate(&Link{}, &Category{})
+	// 执行数据库迁移
+	err = db.AutoMigrate(&Category{})
 	if err != nil {
-		log.Fatal("failed to migrate database:", err)
+		log.Fatal("failed to migrate categories:", err)
 	}
-	log.Println("Database migration completed")
 
 	// 初始化默认分类
 	if err := initializeCategories(); err != nil {
 		log.Fatal("failed to initialize categories:", err)
 	}
 	log.Println("Categories initialized successfully")
+
+	// 迁移 Link 表，但不包括 NOT NULL 约束
+	if err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS links (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255),
+			image VARCHAR(255),
+			url VARCHAR(255),
+			description TEXT,
+			category VARCHAR(255),
+			visit_count INTEGER DEFAULT 0
+		)
+	`).Error; err != nil {
+		log.Fatal("failed to create links table:", err)
+	}
+
+	// 更新所有空分类为"其他"
+	if err := db.Exec(`
+		UPDATE links 
+		SET category = '其他' 
+		WHERE category IS NULL OR category = ''
+	`).Error; err != nil {
+		log.Fatal("failed to update null categories:", err)
+	}
+
+	// 添加 NOT NULL 约束
+	if err := db.Exec(`
+		ALTER TABLE links 
+		ALTER COLUMN category SET NOT NULL,
+		ALTER COLUMN name SET NOT NULL,
+		ALTER COLUMN image SET NOT NULL,
+		ALTER COLUMN url SET NOT NULL
+	`).Error; err != nil {
+		log.Fatal("failed to set not null constraints:", err)
+	}
+
+	log.Println("Database migration completed")
 }
 
 // 初始化默认分类
@@ -189,11 +226,12 @@ func initializeCategories() error {
 		"前端",
 		"后端",
 		"人工智能",
+		"其他",
 	}
 
 	for _, name := range categories {
 		var category Category
-		result := db.FirstOrCreate(&category, Category{Name: name})
+		result := db.Where(Category{Name: name}).FirstOrCreate(&category, Category{Name: name})
 		if result.Error != nil {
 			return fmt.Errorf("failed to create category %s: %v", name, result.Error)
 		}
@@ -212,61 +250,21 @@ func initializeCategories() error {
 // @Router /api/v1/links [get]
 func getLinks(c *gin.Context) {
 	var links []Link
-	category := c.Query("category")
+	categoryID := c.Query("categoryId")
 
 	query := db
-	if category != "" {
-		query = query.Where("category = ?", category)
+	if categoryID != "" {
+		if id, err := strconv.ParseUint(categoryID, 10, 32); err == nil {
+			query = query.Where("category_id = ?", uint(id))
+		}
 	}
 
-	if err := query.Order("visits desc").Find(&links).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to fetch links"})
+	if err := query.Find(&links).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, links)
-}
-
-// @Summary 添加新链接
-// @Description 添加新的链接信息
-// @Tags Links
-// @Accept json
-// @Produce json
-// @Param link body Link true "链接信息"
-// @Success 200 {object} gin.H{"message": "Link added successfully", "link": Link}
-// @Failure 400 {object} gin.H{"error": "Invalid input"}
-// @Failure 500 {object} gin.H{"error": "Unable to add link"}
-// @Router /api/v1/links [post]
-func addLink(c *gin.Context) {
-	var newLink Link
-
-	if err := c.ShouldBindJSON(&newLink); err != nil {
-		log.Println("JSON解析失败:", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-		return
-	}
-
-	// 验证分类是否存在
-	var category Category
-	if err := db.First(&category, "name = ?", newLink.Category).Error; err != nil {
-		log.Printf("分类验证失败: %v, 分类名: %s", err, newLink.Category)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
-		return
-	}
-
-	// 存储链接信息到数据库
-	if err := db.Create(&newLink).Error; err != nil {
-		log.Printf("创建链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to add link"})
-		return
-	}
-
-	// 更新分类计数
-	if err := db.Model(&category).Update("count", gorm.Expr("count + 1")).Error; err != nil {
-		log.Printf("更新分类计数失败: %v", err)
-		// 不返回错误，继续执行
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Link added successfully", "link": newLink})
 }
 
 // @Summary 获取所有分类
@@ -280,7 +278,7 @@ func addLink(c *gin.Context) {
 func getCategories(c *gin.Context) {
 	var categories []Category
 	if err := db.Find(&categories).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to fetch categories"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, categories)
@@ -292,49 +290,113 @@ func getCategories(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "链接ID"
-// @Success 200 {object} gin.H{"message": "Visit count updated"}
+// @Success 200 {object} gin.H{"success": bool}
 // @Failure 404 {object} gin.H{"error": "Link not found"}
 // @Failure 500 {object} gin.H{"error": "Update failed"}
 // @Router /api/v1/links/{id}/visit [post]
 func incrementVisits(c *gin.Context) {
 	id := c.Param("id")
-
-	result := db.Model(&Link{}).Where("id = ?", id).Update("visits", gorm.Expr("visits + 1"))
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
-		return
-	}
-	if result.RowsAffected == 0 {
+	var link Link
+	if err := db.First(&link, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Link not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Visit count updated"})
+	if err := db.Model(&link).Update("visit_count", link.VisitCount+1).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// @Summary 创建新链接
+// @Description 创建一个新的链接
+// @Tags Links
+// @Accept json
+// @Produce json
+// @Param link body Link true "链接信息"
+// @Success 200 {object} Link
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/links [post]
+func createLink(c *gin.Context) {
+	var link Link
+	if err := c.ShouldBindJSON(&link); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 验证必填字段
+	if link.Name == "" || link.Image == "" || link.URL == "" || link.Category == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name, image, url and category are required"})
+		return
+	}
+
+	if err := db.Create(&link).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, link)
+}
+
+// @Summary 删除链接
+// @Description 删除指定的链接
+// @Tags Links
+// @Accept json
+// @Produce json
+// @Param id path int true "链接ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/links/{id} [delete]
+func deleteLink(c *gin.Context) {
+	id := c.Param("id")
+	var link Link
+	if err := db.First(&link, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Link not found"})
+		return
+	}
+
+	if err := db.Delete(&link).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Link deleted successfully"})
 }
 
 func main() {
 	initDB()
 
 	r := gin.Default()
-	r.Use(cors.Default())
 
-	api := r.Group("/api/v1")
+	// CORS 配置
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Origin", "Content-Type"},
+	}))
+
+	// API 路由
+	v1 := r.Group("/api/v1")
 	{
-		api.GET("/links", getLinks)
-		api.POST("/links", addLink)
-		api.GET("/categories", getCategories)
-		api.POST("/links/:id/visit", incrementVisits)
+		v1.GET("/links", getLinks)
+		v1.POST("/links", createLink)
+		v1.DELETE("/links/:id", deleteLink)
+		v1.POST("/links/:id/visit", incrementVisits)
+		v1.GET("/categories", getCategories)
 	}
 
+	// Swagger 文档
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	port := config.Server.Port
 	if port == "" {
-		port = "8092"
+		port = "8080"
 	}
 
-	err := r.Run(":" + port)
-	if err != nil {
-		panic(err)
+	log.Printf("Server starting on port %s", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
 	}
 }
