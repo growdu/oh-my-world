@@ -381,6 +381,10 @@ onMounted(() => {
   if (content) {
     content.addEventListener('wheel', handleWheel, { passive: false })
   }
+
+  if (localStorage.getItem('isAdmin') !== 'true') {
+    router.push('/')
+  }
 })
 
 onUnmounted(() => {
@@ -407,6 +411,7 @@ onUnmounted(() => {
           <i class="el-icon-switch-button">⇲</i>
           退出登录
         </button>
+        <button v-if="isAdmin" @click="router.push('/manage')">卡片管理</button>
       </div>
     </header>
     
