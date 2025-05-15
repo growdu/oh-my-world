@@ -21,7 +21,7 @@ const allLinks = ref([])
 const total = ref(0)
 
 const visibleLinks = computed(() => {
-  return allLinks.value
+  return filteredLinks.value
 })
 
 
@@ -126,6 +126,7 @@ const handleKeydown = (e) => {
 const swiperModules = [EffectCoverflow, Mousewheel, Autoplay]
 
 const categories = ref([
+  { name: '全部', count: 0 },
   { name: '编程语言', count: 0 },
   { name: '开发工具', count: 0 },
   { name: '框架', count: 0 },
@@ -134,6 +135,7 @@ const categories = ref([
   { name: '前端', count: 0 },
   { name: '后端', count: 0 },
   { name: '人工智能', count: 0 },
+  { name: '其他', count: 0 },
 ])
 
 const popularLinks = computed(() => {
@@ -153,6 +155,18 @@ const updateCategoryCounts = () => {
   categories.value.forEach(category => {
     category.count = allLinks.value.filter(link => link.category === category.name).length
   })
+  const all = allLinks.value
+  const categoryMap = new Map()
+
+  all.forEach(link => {
+    const cat = link.category || '未分类'
+    categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1)
+  })
+
+  categories.value = [{ name: '全部', count: all.length }]
+  for (const [name, count] of categoryMap.entries()) {
+    categories.value.push({ name, count })
+  }
 }
 
 const fetchLinks = async () => {
