@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -299,32 +299,27 @@ watch(
   }
 )
 
-// 添加防抖函数
-const debounce = (fn, delay) => {
-  let timeoutId
+// 节流函数
+const throttle = (fn, delay) => {
+  let last = 0
   return (...args) => {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-    timeoutId = setTimeout(() => {
+    const now = Date.now()
+    if (now - last > delay) {
+      last = now
       fn.apply(null, args)
-      timeoutId = null
-    }, delay)
+    }
   }
 }
 
 // 处理滚轮事件
-const handleWheel = debounce((e) => {
-  // 防止页面滚动
+const handleWheel = throttle((e) => {
   e.preventDefault()
-  
-  // deltaY > 0 表示向下滚动，< 0 表示向上滚动
   if (e.deltaY > 0) {
     nextCard()
   } else {
     prevCard()
   }
-}, 150) // 150ms 的防抖延迟
+}, 200) // 200ms 节流
 
 // 处理图片加载错误
 const handleImageError = (e) => {
@@ -400,19 +395,30 @@ onUnmounted(() => {
 <template>
   <div class="home-container" tabindex="0" @keydown="handleKeydown">
     <header class="main-header">
-      <h1 class="site-title">Just For Fun</h1>
-      <p class="site-subtitle">好奇是人类的天性，兴趣是最好的老师</p>
+      <div class="header-left">
+        <div class="logo-title">
+          <img class="growdu-logo" src="/logo.svg" alt="growdu logo" />
+          <div class="title-group">
+            <h1 class="site-title">growdu</h1>
+            <p class="site-explore">持续成长进步，探索计算机世界,一切从好玩开始。</p>
+          </div>
+        </div>
+      </div>
+
       <div class="header-actions" v-if="isAdmin">
-        <button class="action-btn add-btn" @click="dialogVisible = true">
-          <i class="el-icon-plus">+</i>
-          添加链接
-        </button>
         <button class="action-btn logout-btn" @click="handleLogout">
           <i class="el-icon-switch-button">⇲</i>
           退出登录
         </button>
-        <button v-if="isAdmin" @click="router.push('/manage')">卡片管理</button>
+        <button v-if="isAdmin" @click="router.push('/manage')">
+          <i class="el-icon-switch-button">⇲</i>
+          卡片管理
+        </button>
       </div>
+      <!-- 右上角GitHub链接 -->
+      <a class="github-link" href="https://github.com/growdu" target="_blank" title="GitHub">
+        <svg height="28" viewBox="0 0 16 16" width="28" style="vertical-align:middle;"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+      </a>
     </header>
     
     <div class="main-content">
@@ -454,6 +460,7 @@ onUnmounted(() => {
             <div v-for="(link, index) in visibleLinks" 
               :key="link.id" 
               class="link-card"
+              :class="{ active: index === currentIndex }"
               :style="getCardStyle(index)"
               @click.stop="handleCardClick(link, index)">
               <div class="card-content">
@@ -487,6 +494,10 @@ onUnmounted(() => {
               <i class="el-icon-arrow-right">▶</i>
             </button>
           </template>
+        </div>
+        <!-- 评论功能挂载点 -->
+        <div id="comments" class="comments-section">
+          <!-- 这里可以挂载评论组件，如valine、giscus等 -->
         </div>
         <div class="scroll-hint" :class="{ visible: !loading && allLinks.length > 0 }">
           <i>↕</i>
@@ -571,6 +582,15 @@ onUnmounted(() => {
         </span>
       </template>
     </el-dialog>
+
+    <!-- 页脚备案和版权信息 -->
+    <footer class="main-footer">
+      <div>
+        <a href="https://beian.miit.gov.cn/" target="_blank">蜀ICP备2025139986号</a>
+        &nbsp;|&nbsp;
+        Copyright © {{ new Date().getFullYear() }} growdu
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -582,11 +602,52 @@ onUnmounted(() => {
 }
 
 .main-header {
-  text-align: center;
-  padding: 2rem 2rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1.2rem 2rem 1.2rem 2rem;
   background: rgba(255, 255, 255, 0.1);
   margin-bottom: 1.5rem;
+  position: relative;
 }
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.logo-title {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.growdu-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: #fff;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+/* .site-title {
+  font-size: 1.7rem;
+  font-style: italic;
+  color: #2c3e50;
+  margin: 0;
+  font-weight: 800;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  line-height: 1.1;
+} */
 
 .site-title {
   font-size: 2.5rem;
@@ -604,6 +665,23 @@ onUnmounted(() => {
   margin: 0.5rem 0 0;
   font-style: italic;
   font-weight: 300;
+  line-height: 1.2;
+}
+
+.site-explore {
+  font-size: 1.02rem;
+  color: #1a73e8;
+  font-weight: 500;
+  margin: 0 0 0 2px;
+  letter-spacing: 1px;
+}
+
+.site-slogan {
+  font-size: 1.08rem;
+  color: #34495e;
+  margin: 0.2rem 0 0 2px;
+  font-style: italic;
+  font-weight: 400;
   line-height: 1.2;
 }
 
@@ -662,7 +740,7 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 0; /* 移除内边距以适应图片 */
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
   cursor: pointer;
   backdrop-filter: blur(10px);
   transform-style: preserve-3d;
@@ -671,6 +749,7 @@ onUnmounted(() => {
   left: 50%;
   margin-left: -200px;
   overflow: hidden; /* 防止图片溢出圆角 */
+  z-index: 0;
 }
 
 .link-card:nth-child(1),
@@ -727,13 +806,7 @@ onUnmounted(() => {
 }
 
 .link-card:hover {
-  animation: cardRotate 1s cubic-bezier(0.23, 1, 0.32, 1);
-  transform: scale(1.05) translateY(-10px);
-  box-shadow: 
-    0 15px 35px rgba(0, 0, 0, 0.2),
-    0 5px 15px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  z-index: 2;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 .card-content {
@@ -1129,10 +1202,13 @@ onUnmounted(() => {
 
 /* 添加激活状态样式 */
 .link-card.active {
-  transform: translateZ(0) rotateY(0deg) !important;
-  opacity: 1 !important;
-  filter: blur(0) !important;
-  z-index: 1;
+  z-index: 2 !important;
+  animation: cardRotate 1s cubic-bezier(0.23, 1, 0.32, 1);
+  transform: scale(1.05) translateY(-10px) !important;
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.2),
+    0 5px 15px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 /* 添加滚动提示 */
@@ -1382,6 +1458,41 @@ onUnmounted(() => {
     width: 90% !important;
     margin: 0 auto;
   }
+}
+
+.github-link {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  color: #333;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  z-index: 100;
+}
+
+.github-link:hover {
+  opacity: 1;
+  color: #1a73e8;
+}
+
+.comments-section {
+  margin: 48px auto 0 auto;
+  max-width: 800px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  padding: 32px 24px 24px 24px;
+}
+
+.main-footer {
+  width: 100%;
+  text-align: center;
+  padding: 24px 0 12px 0;
+  color: #888;
+  font-size: 0.95rem;
+  background: transparent;
+  letter-spacing: 1px;
+  margin-top: 48px;
 }
 </style>
 
