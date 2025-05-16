@@ -381,6 +381,90 @@ func deleteLink(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Link deleted successfully"})
 }
 
+// @Summary 更新链接
+// @Description 更新指定的链接
+// @Tags Links
+// @Accept json
+// @Produce json
+// @Param id path int true "链接ID"
+// @Param link body Link true "链接信息"
+// @Success 200 {object} Link
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/links/{id} [put]
+func updateLink(c *gin.Context) {
+	id := c.Param("id")
+	var link Link
+	if err := db.First(&link, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Link not found"})
+		return
+	}
+	var updateData Link
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// 只更新允许的字段
+	link.Name = updateData.Name
+	link.Image = updateData.Image
+	link.URL = updateData.URL
+	link.Description = updateData.Description
+	link.Category = updateData.Category
+	if err := db.Save(&link).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, link)
+}
+
+// @Summary 新增分类
+// @Router /api/v1/categories [post]
+func createCategory(c *gin.Context) {
+	var cat Category
+	if err := c.ShouldBindJSON(&cat); err != nil || cat.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+	if err := db.Create(&cat).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, cat)
+}
+
+// @Summary 删除分类
+// @Router /api/v1/categories/{id} [delete]
+func deleteCategory(c *gin.Context) {
+	id := c.Param("id")
+	if err := db.Delete(&Category{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Category deleted"})
+}
+
+// @Summary 修改分类
+// @Router /api/v1/categories/{id} [put]
+func updateCategory(c *gin.Context) {
+	id := c.Param("id")
+	var cat Category
+	if err := db.First(&cat, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+		return
+	}
+	var updateData Category
+	if err := c.ShouldBindJSON(&updateData); err != nil || updateData.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+	cat.Name = updateData.Name
+	if err := db.Save(&cat).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, cat)
+}
+
 func main() {
 	initDB()
 
@@ -401,6 +485,10 @@ func main() {
 		v1.DELETE("/links/:id", deleteLink)
 		v1.POST("/links/:id/visit", incrementVisits)
 		v1.GET("/categories", getCategories)
+		v1.POST("/categories", createCategory)
+		v1.DELETE("/categories/:id", deleteCategory)
+		v1.PUT("/links/:id", updateLink)
+		v1.PUT("/categories/:id", updateCategory)
 	}
 
 	// Swagger 文档

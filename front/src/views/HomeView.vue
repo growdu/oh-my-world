@@ -24,25 +24,6 @@ const visibleLinks = computed(() => {
   return filteredLinks.value
 })
 
-
-const dialogVisible = ref(false)
-const useMarkdown = ref(false)
-const newLink = ref({
-  name: '',
-  image: '',
-  description: '',
-  url: '',
-  category: ''
-})
-
-const dialogWidth = computed(() => {
-  return useMarkdown.value ? '80%' : '500px'
-})
-
-const editorHeight = computed(() => {
-  return useMarkdown.value ? '400px' : '200px'
-})
-
 const getCardStyle = (index) => {
   const diff = index - currentIndex.value
   
@@ -122,21 +103,20 @@ const handleKeydown = (e) => {
   }
 }
 
-
 const swiperModules = [EffectCoverflow, Mousewheel, Autoplay]
 
-const categories = ref([
-  { name: '全部', count: 0 },
-  { name: '编程语言', count: 0 },
-  { name: '开发工具', count: 0 },
-  { name: '框架', count: 0 },
-  { name: '数据库', count: 0 },
-  { name: '运维', count: 0 },
-  { name: '前端', count: 0 },
-  { name: '后端', count: 0 },
-  { name: '人工智能', count: 0 },
-  { name: '其他', count: 0 },
-])
+const categories = ref([{ name: '全部', count: 0 }])
+const fetchCategories = async () => {
+  try {
+    const res = await request.get('/categories')
+    if (Array.isArray(res.data)) {
+      categories.value = [{ name: '全部', count: allLinks.value.length }, ...res.data.map(cat => ({ name: cat.name, count: 0 }))]
+      updateCategoryCounts()
+    }
+  } catch (e) {
+    ElMessage.error('获取分类失败')
+  }
+}
 
 const popularLinks = computed(() => {
   return [...allLinks.value]
@@ -231,6 +211,7 @@ const fetchLinks = async () => {
     if (Array.isArray(res.data)) {
       allLinks.value = res.data.reverse()
       total.value = allLinks.value.length
+      await fetchCategories()
       updateCategoryCounts()
     } else {
       console.error('返回的数据不是数组', res.data)
@@ -270,24 +251,6 @@ const handleLogout = () => {
   }).catch(() => {})
 }
 
-const handleDelete = async (link) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个链接吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    await request.delete(`/links/${link.id}`)
-    ElMessage.success('删除成功')
-    fetchLinks()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败：' + error.message)
-    }
-  }
-}
-
 const renderMarkdown = (text) => {
   return marked(text)
 }
@@ -325,47 +288,6 @@ const handleWheel = throttle((e) => {
 const handleImageError = (e) => {
   // 设置默认图片
   e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Found'
-}
-
-const addLink = async () => {
-  if (!newLink.value.name || !newLink.value.image || !newLink.value.url || !newLink.value.category) {
-    ElMessage.error('请填写完整信息！')
-    return
-  }
-
-  try {
-    await request.post('/links', newLink.value)
-    ElMessage.success('添加成功！')
-    dialogVisible.value = false
-    newLink.value = { name: '', image: '', description: '', url: '', category: '' }
-    fetchLinks()
-  } catch (error) {
-    ElMessage.error('添加失败：' + error.message)
-  }
-}
-
-const handleClose = (done) => {
-  ElMessageBox.confirm('确认关闭？未保存的内容将会丢失')
-    .then(() => {
-      useMarkdown.value = false
-      newLink.value = {
-        name: '',
-        image: '',
-        description: '',
-        url: '',
-        category: ''
-      }
-      done()
-    })
-    .catch(() => {})
-}
-
-const handleAddLink = () => {
-  if (!newLink.value.name || !newLink.value.url || !newLink.value.category) {
-    ElMessage.error('请填写必要的信息！')
-    return
-  }
-  addLink()
 }
 
 onMounted(() => {
@@ -410,8 +332,8 @@ onUnmounted(() => {
           <i class="el-icon-switch-button">⇲</i>
           退出登录
         </button>
-        <button v-if="isAdmin" @click="router.push('/manage')">
-          <i class="el-icon-switch-button">⇲</i>
+        <button class="action-btn manage-btn" @click="router.push('/manage')">
+          <i class="el-icon-setting">⚙</i>
           卡片管理
         </button>
       </div>
@@ -471,15 +393,10 @@ onUnmounted(() => {
                     @error="handleImageError"
                     loading="lazy"
                   />
-                  <div class="card-actions" v-if="isAdmin">
-                    <button class="action-button delete" @click.stop="handleDelete(link)">
-                      <i class="el-icon-delete">🗑</i>
-                    </button>
-                  </div>
                 </div>
                 <div class="card-info">
                   <h3>{{ link.name }}</h3>
-                  <p class="link-description" v-html="renderMarkdown(link.description)"></p>
+                  <p class="link-description-full" v-html="renderMarkdown(link.description)"></p>
                   <div class="card-footer">
                     <span class="visit-count">访问: {{ link.visits || 0 }}</span>
                     <span class="category-tag">{{ link.category }}</span>
@@ -496,9 +413,9 @@ onUnmounted(() => {
           </template>
         </div>
         <!-- 评论功能挂载点 -->
-        <div id="comments" class="comments-section">
+        <!-- <div id="comments" class="comments-section"> -->
           <!-- 这里可以挂载评论组件，如valine、giscus等 -->
-        </div>
+        <!-- </div> -->
         <div class="scroll-hint" :class="{ visible: !loading && allLinks.length > 0 }">
           <i>↕</i>
           <span>滚动鼠标滚轮切换卡片</span>
@@ -517,71 +434,6 @@ onUnmounted(() => {
         </section>
       </aside>
     </div>
-
-    <!-- 添加链接对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      title="添加新链接"
-      :width="dialogWidth"
-      :before-close="handleClose"
-    >
-      <el-form :model="newLink" label-width="120px">
-        <el-form-item label="名称">
-          <el-input v-model="newLink.name" />
-        </el-form-item>
-        <el-form-item label="图片链接">
-          <el-input v-model="newLink.image" />
-        </el-form-item>
-        <el-form-item label="URL">
-          <el-input v-model="newLink.url" />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-input v-model="newLink.category" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-switch
-            v-model="useMarkdown"
-            active-text="Markdown编辑器"
-            inactive-text="普通文本"
-            class="mb-2"
-          />
-          <el-input
-            v-if="!useMarkdown"
-            v-model="newLink.description"
-            type="textarea"
-            :rows="4"
-          />
-          <md-editor
-            v-else
-            v-model="newLink.description"
-            :style="{ height: editorHeight }"
-            :toolbars="[
-              'bold',
-              'underline',
-              'italic',
-              'strikethrough',
-              'title',
-              'sub',
-              'sup',
-              'quote',
-              'unordered-list',
-              'ordered-list',
-              'link',
-              'image',
-              'code',
-              'code-block',
-              'preview'
-            ]"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleAddLink">确认</el-button>
-        </span>
-      </template>
-    </el-dialog>
 
     <!-- 页脚备案和版权信息 -->
     <footer class="main-footer">
@@ -860,18 +712,15 @@ onUnmounted(() => {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.link-description {
-  flex: 1;
+.link-description-full {
   color: #666;
   line-height: 1.6;
   margin: 0;
   font-size: 1rem;
-  transform: translateZ(35px);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: pre-line;
+  word-break: break-all;
+  overflow: visible;
+  display: block;
 }
 
 .card-footer {
@@ -966,7 +815,7 @@ onUnmounted(() => {
     transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
   }
   
-  .card-content, .link-card h3, .link-description, .card-footer, .category-tag {
+  .card-content, .link-card h3, .link-description-full, .card-footer, .category-tag {
     transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
   }
 }
@@ -1097,7 +946,7 @@ onUnmounted(() => {
     font-size: 1.2rem;
   }
 
-  .link-description {
+  .link-description-full {
     font-size: 0.85rem;
     -webkit-line-clamp: 2;
   }
