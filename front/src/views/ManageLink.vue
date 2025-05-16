@@ -263,4 +263,51 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
 }
+@media (max-width: 768px) {
+  .cards-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: auto;
+    padding: 1rem 0;
+  }
+  .link-card {
+    position: static;
+    width: 100%;
+    max-width: 400px;
+    margin: 1rem 0;
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    left: auto;
+    margin-left: 0;
+  }
+  .nav-button {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-image {
+    height: 160px;
+  }
+
+  .card-info {
+    padding: 0.8rem;
+  }
+
+  .link-card h3 {
+    font-size: 1.2rem;
+  }
+
+  .link-description-full {
+    font-size: 0.85rem;
+    -webkit-line-clamp: 2;
+  }
+
+  .category-tag {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+  }
+}
 </style>

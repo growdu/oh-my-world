@@ -858,7 +858,6 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     padding: 0 1rem;
   }
-
   .sidebar-left {
     position: fixed;
     bottom: 0;
@@ -871,12 +870,10 @@ onUnmounted(() => {
     transform: translateY(calc(100% - 50px));
     transition: transform 0.3s ease;
   }
-
   .sidebar-left:hover,
   .sidebar-left:focus-within {
     transform: translateY(0);
   }
-
   .sidebar-left::before {
     content: '分类';
     display: block;
@@ -886,48 +883,31 @@ onUnmounted(() => {
     color: #2c3e50;
     border-bottom: 1px solid #eee;
   }
-
   .cards-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     height: auto;
     padding: 1rem 0;
   }
-
   .link-card {
-    position: relative;
-    width: calc(100% - 2rem);
+    position: static;
+    width: 100%;
     max-width: 400px;
-    margin: 1rem auto;
+    margin: 1rem 0;
     transform: none !important;
     opacity: 1 !important;
     filter: none !important;
     left: auto;
     margin-left: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
-
   .nav-button {
     display: none;
   }
-
-  .site-title {
-    font-size: 2rem;
-  }
-
-  .site-subtitle {
-    font-size: 1rem;
-  }
-
-  .main-header {
-    padding: 1.5rem 1rem 1rem;
-  }
-
-  .scroll-hint {
-    display: none;
-  }
-
   .card-image {
     height: 180px;
   }
-
   .card-info {
     padding: 1rem;
   }
@@ -935,25 +915,21 @@ onUnmounted(() => {
 
 @media (max-width: 480px) {
   .card-image {
-    height: 160px;
+    height: 140px;
   }
-
   .card-info {
-    padding: 0.8rem;
+    padding: 0.7rem;
   }
-
   .link-card h3 {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
-
   .link-description-full {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     -webkit-line-clamp: 2;
   }
-
   .category-tag {
-    font-size: 0.75rem;
-    padding: 0.2rem 0.6rem;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
   }
 }
 
