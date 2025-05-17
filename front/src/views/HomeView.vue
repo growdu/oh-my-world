@@ -25,6 +25,10 @@ const visibleLinks = computed(() => {
 })
 
 const getCardStyle = (index) => {
+  if (isMobile.value) {
+    return {} // 移动端使用普通列表布局，不需要特殊样式
+  }
+
   const diff = index - currentIndex.value
   
   if (Math.abs(diff) >= 3) {
@@ -86,7 +90,7 @@ onMounted(() => {
 })
 
 const handleTouchStart = (e) => {
-  if (e.touches.length === 1) {
+  if (!isMobile.value && e.touches.length === 1) {
     touchStartY.value = e.touches[0].clientY
     touchStartX.value = e.touches[0].clientX
     touchStartTime.value = Date.now()
@@ -94,53 +98,53 @@ const handleTouchStart = (e) => {
 }
 
 const handleTouchMove = (e) => {
-  if (!touchStartY.value || isAnimating.value) return
-  
-  const touchEndY = e.touches[0].clientY
-  const touchEndX = e.touches[0].clientX
-  const diffY = touchEndY - touchStartY.value
-  const diffX = touchEndX - touchStartX.value
-  
-  // 如果水平移动大于垂直移动，则不处理
-  if (Math.abs(diffX) > Math.abs(diffY)) return
-  
-  // 阻止默认滚动
-  e.preventDefault()
-  
-  // 计算当前滑动的卡片位置
-  const currentCard = document.querySelector('.link-card.active')
-  if (currentCard) {
-    const translateY = diffY * 0.5 // 减小移动距离，使动画更平滑
-    currentCard.style.transform = `translateX(-50%) translateY(${translateY}px)`
+  if (!isMobile.value && touchStartY.value && !isAnimating.value) {
+    const touchEndY = e.touches[0].clientY
+    const touchEndX = e.touches[0].clientX
+    const diffY = touchEndY - touchStartY.value
+    const diffX = touchEndX - touchStartX.value
+    
+    // 如果水平移动大于垂直移动，则不处理
+    if (Math.abs(diffX) > Math.abs(diffY)) return
+    
+    // 阻止默认滚动
+    e.preventDefault()
+    
+    // 计算当前滑动的卡片位置
+    const currentCard = document.querySelector('.link-card.active')
+    if (currentCard) {
+      const translateY = diffY * 0.5 // 减小移动距离，使动画更平滑
+      currentCard.style.transform = `translateX(-50%) translateY(${translateY}px)`
+    }
   }
 }
 
 const handleTouchEnd = (e) => {
-  if (!touchStartY.value || isAnimating.value) return
-  
-  const touchEndY = e.changedTouches[0].clientY
-  const diffY = touchEndY - touchStartY.value
-  const timeDiff = Date.now() - touchStartTime.value
-  
-  // 重置当前卡片位置
-  const currentCard = document.querySelector('.link-card.active')
-  if (currentCard) {
-    currentCard.style.transform = 'translateX(-50%)'
-  }
-  
-  // 判断是否为快速滑动
-  const isQuickSwipe = Math.abs(diffY) > 30 && timeDiff < 300
-  
-  if (Math.abs(diffY) > 50 || isQuickSwipe) {
-    isAnimating.value = true
-    if (diffY > 0) {
-      prevCard()
-    } else {
-      nextCard()
+  if (!isMobile.value && touchStartY.value && !isAnimating.value) {
+    const touchEndY = e.changedTouches[0].clientY
+    const diffY = touchEndY - touchStartY.value
+    const timeDiff = Date.now() - touchStartTime.value
+    
+    // 重置当前卡片位置
+    const currentCard = document.querySelector('.link-card.active')
+    if (currentCard) {
+      currentCard.style.transform = 'translateX(-50%)'
     }
-    setTimeout(() => {
-      isAnimating.value = false
-    }, 300) // 动画时间
+    
+    // 判断是否为快速滑动
+    const isQuickSwipe = Math.abs(diffY) > 30 && timeDiff < 300
+    
+    if (Math.abs(diffY) > 50 || isQuickSwipe) {
+      isAnimating.value = true
+      if (diffY > 0) {
+        prevCard()
+      } else {
+        nextCard()
+      }
+      setTimeout(() => {
+        isAnimating.value = false
+      }, 300) // 动画时间
+    }
   }
   
   touchStartY.value = null
@@ -154,7 +158,12 @@ const touchStartTime = ref(null)
 
 const handleCardClick = async (link, index) => {
   if (isMobile.value) {
-    // 移动端直接在当前页面打开
+    // 移动端直接在当前页面打开链接
+    try {
+      await request.post(`/links/${link.id}/visit`)
+    } catch (error) {
+      console.error('Failed to update visit count:', error)
+    }
     window.location.href = link.url.startsWith('http') ? link.url : `http://${link.url}`
   } else {
     currentIndex.value = index
@@ -965,119 +974,136 @@ onUnmounted(() => {
   .content {
     min-height: calc(100vh - 200px);
     height: auto;
-    padding-bottom: 60px;
-    touch-action: pan-x; /* 只允许水平方向的滚动 */
-    overflow: hidden;
+    padding: 20px 0 60px;
+    perspective: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   .cards-container {
     position: relative;
     height: auto;
-    min-height: 500px;
+    min-height: auto;
     padding: 20px 0;
-    overflow: visible;
-    perspective: none; /* 移动端禁用 3D 效果 */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    perspective: none;
+    transform-style: none;
   }
 
   .link-card {
-    position: absolute;
-    width: 90%;
-    max-width: 400px;
-    margin: 0 auto;
-    left: 50%;
-    transform: translateX(-50%) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform;
-    -webkit-transform: translateX(-50%) !important;
-    -webkit-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: transform 0.3s ease;
   }
 
   .link-card.active {
-    transform: translateX(-50%) !important;
-    -webkit-transform: translateX(-50%) !important;
-    opacity: 1;
-    visibility: visible;
-    z-index: 2;
+    transform: none !important;
   }
 
   .link-card:not(.active) {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
 
   .card-content {
-    transform: none !important;
-    -webkit-transform: none !important;
-    transition: none;
+    flex-direction: row;
+    height: 160px;
   }
 
   .card-image {
-    height: 200px;
+    width: 160px;
+    height: 160px;
+    flex-shrink: 0;
   }
 
   .card-info {
-    padding: 1.2rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
 
-  /* 优化触摸反馈 */
-  .link-card:active {
-    transform: translateX(-50%) scale(0.98) !important;
-    -webkit-transform: translateX(-50%) scale(0.98) !important;
-  }
-
-  /* 移动端滑动提示 */
-  .scroll-hint {
-    bottom: 40px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
+  .link-description-full {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     font-size: 0.9rem;
   }
 
-  /* 添加页面指示器 */
+  .card-footer {
+    margin-top: auto;
+  }
+
+  /* 移动端点击反馈 */
+  .link-card:active {
+    transform: scale(0.98) !important;
+  }
+
+  /* 隐藏导航按钮 */
+  .nav-button {
+    display: none;
+  }
+
+  /* 隐藏滚动提示 */
+  .scroll-hint {
+    display: none;
+  }
+
+  /* 隐藏页面指示器 */
   .page-indicator {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 8px;
-    z-index: 10;
-  }
-
-  .page-indicator-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
-  }
-
-  .page-indicator-dot.active {
-    background: #1a73e8;
-    transform: scale(1.2);
+    display: none;
   }
 }
 
 /* 针对 iOS Safari 的特殊处理 */
 @supports (-webkit-touch-callout: none) {
-  .link-card {
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
   .content {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* iOS Safari 特定的动画优化 */
   .link-card {
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 保持电脑端的3D效果 */
+@media (min-width: 769px) {
+  .link-card {
+    position: absolute;
+    width: 400px;
+    transform-style: preserve-3d;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    left: 50%;
+    margin-left: -200px;
+  }
+
+  .card-content {
+    transform-style: preserve-3d;
+  }
+
+  .card-image {
+    transform: translateZ(20px);
+  }
+
+  .card-info {
+    transform: translateZ(30px);
+  }
+
+  .card-footer {
+    transform: translateZ(40px);
   }
 }
 
