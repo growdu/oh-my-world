@@ -379,44 +379,14 @@ watch(
   }
 )
 
-// 节流函数优化
-const throttle = (fn, delay) => {
-  let last = 0
-  let timer = null
-  return (...args) => {
-    const now = Date.now()
-    if (now - last > delay) {
-      if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-      last = now
-      fn.apply(null, args)
-    } else if (!timer) {
-      timer = setTimeout(() => {
-        last = now
-        fn.apply(null, args)
-        timer = null
-      }, delay)
-    }
+const handleCardTransition = () => {
+  if (!isMobile.value) {
+    const cards = document.querySelectorAll('.link-card')
+    cards.forEach(card => {
+      card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+    })
   }
 }
-
-// 优化滚轮事件处理
-const handleWheel = throttle((e) => {
-  if (isMobile.value || isAnimating.value) return
-  e.preventDefault()
-
-  isAnimating.value = true
-  if (e.deltaY > 0) {
-    nextCard()
-  } else {
-    prevCard()
-  }
-  setTimeout(() => {
-    isAnimating.value = false
-  }, 500) // 增加动画时间以确保平滑过渡
-}, 300) // 增加节流时间
 
 // 处理图片加载错误
 const handleImageError = (e) => {
@@ -428,26 +398,9 @@ const showScrollHint = computed(() => {
   return !isMobile.value && !loading.value && allLinks.value.length > 0
 })
 
-const handleCardTransition = () => {
-  if (!isMobile.value) {
-    const cards = document.querySelectorAll('.link-card')
-    cards.forEach(card => {
-      card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-    })
-  }
-}
-
 onMounted(() => {
   fetchLinks()
   window.addEventListener('keydown', handleKeydown)
-  // 添加触摸事件监听
-  const content = document.querySelector('.content')
-  if (content) {
-    content.addEventListener('wheel', handleWheel, { passive: false })
-    content.addEventListener('touchstart', handleTouchStart, { passive: false })
-    content.addEventListener('touchmove', handleTouchMove, { passive: false })
-    content.addEventListener('touchend', handleTouchEnd, { passive: false })
-  }
 
   if (localStorage.getItem('isAdmin') !== 'true') {
     router.push('/')
@@ -456,14 +409,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
-  // 移除触摸事件监听
-  const content = document.querySelector('.content')
-  if (content) {
-    content.removeEventListener('wheel', handleWheel)
-    content.removeEventListener('touchstart', handleTouchStart)
-    content.removeEventListener('touchmove', handleTouchMove)
-    content.removeEventListener('touchend', handleTouchEnd)
-  }
 })
 </script>
 
@@ -536,7 +481,8 @@ onUnmounted(() => {
               :key="link.id" 
               class="link-card"
               :class="{ active: index === currentIndex }"
-              :style="getCardStyle(index)">
+              :style="getCardStyle(index)"
+              @click="handleCardClick(link, index)">
               <div class="card-content">
                 <div class="card-image">
                   <img 
@@ -825,7 +771,28 @@ onUnmounted(() => {
 }
 
 .link-card:hover {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  transform: scale(1.05) translateY(-10px);
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.2),
+    0 5px 15px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+.link-card:hover::after {
+  opacity: 1;
+}
+
+.link-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.1)
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .card-content {
@@ -1341,90 +1308,7 @@ onUnmounted(() => {
 
 /* 添加滚动提示 */
 .scroll-hint {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  z-index: 100;
-  opacity: 1;
-  transition: opacity 0.3s ease;
-}
-
-.scroll-hint.visible {
-  opacity: 1;
-}
-
-.scroll-hint i {
-  font-size: 1.2rem;
-  animation: scrollHint 2s infinite;
-}
-
-@keyframes scrollHint {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-/* 添加图片加载动画 */
-@keyframes imageLoading {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.card-image::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.1) 25%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.1) 75%
-  );
-  background-size: 200% 100%;
-  animation: imageLoading 1.5s infinite;
-  z-index: -1;
-}
-
-/* 优化卡片悬停效果 */
-.link-card:hover {
-  transform: scale(1.05) translateY(-10px);
-  box-shadow: 
-    0 15px 35px rgba(0, 0, 0, 0.2),
-    0 5px 15px rgba(0, 0, 0, 0.1);
-  z-index: 2;
-}
-
-.link-card:hover::after {
-  opacity: 1;
-}
-
-.link-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(255, 255, 255, 0.1)
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  display: none;
 }
 
 .header-actions {
@@ -1660,6 +1544,65 @@ onUnmounted(() => {
   background: yellow !important;
   color: black !important;
   opacity: 1 !important;
+}
+
+/* 添加图片加载动画 */
+@keyframes imageLoading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.card-image::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: imageLoading 1.5s infinite;
+  z-index: -1;
+}
+
+/* 优化卡片悬停效果 */
+.link-card:hover {
+  transform: scale(1.05) translateY(-10px);
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.2),
+    0 5px 15px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+.link-card:hover::after {
+  opacity: 1;
+}
+
+.link-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.1)
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* 隐藏滚动提示 */
+.scroll-hint {
+  display: none;
 }
 </style>
 
