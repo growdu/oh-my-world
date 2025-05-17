@@ -20,8 +20,13 @@ const currentIndex = ref(0)
 const allLinks = ref([])
 const total = ref(0)
 
+const sortedLinks = computed(() => {
+  return [...allLinks.value].sort((a, b) => (b.visits || 0) - (a.visits || 0))
+})
+
 const visibleLinks = computed(() => {
-  return filteredLinks.value
+  if (selectedCategory.value === '全部') return sortedLinks.value
+  return sortedLinks.value.filter(link => link.category === selectedCategory.value)
 })
 
 const getCardStyle = (index) => {
@@ -29,7 +34,15 @@ const getCardStyle = (index) => {
     return {} // 移动端使用普通列表布局，不需要特殊样式
   }
 
-  const diff = index - currentIndex.value
+  const totalCards = visibleLinks.value.length
+  let diff = index - currentIndex.value
+
+  // 处理循环显示的情况
+  if (diff > totalCards / 2) {
+    diff -= totalCards
+  } else if (diff < -totalCards / 2) {
+    diff += totalCards
+  }
   
   if (Math.abs(diff) >= 3) {
     return {
@@ -172,15 +185,28 @@ const handleCardClick = async (link, index) => {
   }
 }
 
+const isFirstCard = computed(() => false)
+const isLastCard = computed(() => false)
+
 const prevCard = () => {
+  if (isAnimating.value) return
+  handleCardTransition()
   if (currentIndex.value > 0) {
     currentIndex.value--
+  } else {
+    // 平滑过渡到最后一个
+    currentIndex.value = visibleLinks.value.length - 1
   }
 }
 
 const nextCard = () => {
-  if (currentIndex.value < allLinks.value.length - 1) {
+  if (isAnimating.value) return
+  handleCardTransition()
+  if (currentIndex.value < visibleLinks.value.length - 1) {
     currentIndex.value++
+  } else {
+    // 平滑过渡到第一个
+    currentIndex.value = 0
   }
 }
 
@@ -216,11 +242,6 @@ const popularLinks = computed(() => {
 })
 
 const selectedCategory = ref('全部')
-
-const filteredLinks = computed(() => {
-  if (selectedCategory.value === '全部') return allLinks.value
-  return allLinks.value.filter(link => link.category === selectedCategory.value)
-})
 
 const updateCategoryCounts = () => {
   categories.value.forEach(category => {
@@ -358,32 +379,62 @@ watch(
   }
 )
 
-// 节流函数
+// 节流函数优化
 const throttle = (fn, delay) => {
   let last = 0
+  let timer = null
   return (...args) => {
     const now = Date.now()
     if (now - last > delay) {
+      if (timer) {
+        clearTimeout(timer)
+        timer = null
+      }
       last = now
       fn.apply(null, args)
+    } else if (!timer) {
+      timer = setTimeout(() => {
+        last = now
+        fn.apply(null, args)
+        timer = null
+      }, delay)
     }
   }
 }
 
-// 处理滚轮事件
+// 优化滚轮事件处理
 const handleWheel = throttle((e) => {
+  if (isMobile.value || isAnimating.value) return
   e.preventDefault()
+
+  isAnimating.value = true
   if (e.deltaY > 0) {
     nextCard()
   } else {
     prevCard()
   }
-}, 200) // 200ms 节流
+  setTimeout(() => {
+    isAnimating.value = false
+  }, 500) // 增加动画时间以确保平滑过渡
+}, 300) // 增加节流时间
 
 // 处理图片加载错误
 const handleImageError = (e) => {
   // 设置默认图片
   e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Found'
+}
+
+const showScrollHint = computed(() => {
+  return !isMobile.value && !loading.value && allLinks.value.length > 0
+})
+
+const handleCardTransition = () => {
+  if (!isMobile.value) {
+    const cards = document.querySelectorAll('.link-card')
+    cards.forEach(card => {
+      card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+    })
+  }
 }
 
 onMounted(() => {
@@ -477,7 +528,7 @@ onUnmounted(() => {
           <template v-else>
             <button class="nav-button prev" 
               @click.stop="prevCard" 
-              :disabled="currentIndex === 0">
+              :disabled="isFirstCard">
               <i class="el-icon-arrow-left">◀</i>
             </button>
             
@@ -485,8 +536,7 @@ onUnmounted(() => {
               :key="link.id" 
               class="link-card"
               :class="{ active: index === currentIndex }"
-              :style="getCardStyle(index)"
-              @click.stop="handleCardClick(link, index)">
+              :style="getCardStyle(index)">
               <div class="card-content">
                 <div class="card-image">
                   <img 
@@ -501,6 +551,9 @@ onUnmounted(() => {
                   <p class="link-description-full" v-html="renderMarkdown(link.description)"></p>
                   <div class="card-footer">
                     <span class="visit-count">访问: {{ link.visits || 0 }}</span>
+                    <div class="card-index" :class="{ 'active': index === currentIndex }">
+                      {{ index + 1 }}/{{ visibleLinks.length }}
+                    </div>
                     <span class="category-tag">{{ link.category }}</span>
                   </div>
                 </div>
@@ -509,7 +562,7 @@ onUnmounted(() => {
 
             <button class="nav-button next" 
               @click.stop="nextCard" 
-              :disabled="currentIndex >= allLinks.length - 1">
+              :disabled="isLastCard">
               <i class="el-icon-arrow-right">▶</i>
             </button>
           </template>
@@ -518,7 +571,7 @@ onUnmounted(() => {
         <!-- <div id="comments" class="comments-section"> -->
           <!-- 这里可以挂载评论组件，如valine、giscus等 -->
         <!-- </div> -->
-        <div class="scroll-hint" :class="{ visible: !loading && allLinks.length > 0 }">
+        <div class="scroll-hint" v-if="showScrollHint">
           <i>↕</i>
           <span>滚动鼠标滚轮切换卡片</span>
         </div>
@@ -695,6 +748,7 @@ onUnmounted(() => {
   align-items: center;
   transform-style: preserve-3d;
   perspective: 2000px;
+  padding-bottom: 50px;
 }
 
 .link-card {
@@ -714,6 +768,7 @@ onUnmounted(() => {
   margin-left: -200px;
   overflow: hidden; /* 防止图片溢出圆角 */
   z-index: 0;
+  margin-bottom: 40px;
 }
 
 .link-card:nth-child(1),
@@ -840,7 +895,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
-  transform: translateZ(45px);
+  gap: 10px;
 }
 
 .categories h2, .hot-links h2 {
@@ -1002,21 +1057,16 @@ onUnmounted(() => {
     opacity: 1 !important;
     visibility: visible !important;
     transition: transform 0.3s ease;
-  }
-
-  .link-card.active {
-    transform: none !important;
-  }
-
-  .link-card:not(.active) {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
+    cursor: pointer;
   }
 
   .card-content {
     flex-direction: row;
     height: 160px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .card-image {
@@ -1030,6 +1080,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    flex: 1;
   }
 
   .link-description-full {
@@ -1038,10 +1089,15 @@ onUnmounted(() => {
     -webkit-box-orient: vertical;
     overflow: hidden;
     font-size: 0.9rem;
+    margin: 0.5rem 0;
   }
 
   .card-footer {
     margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
   }
 
   /* 移动端点击反馈 */
@@ -1049,19 +1105,11 @@ onUnmounted(() => {
     transform: scale(0.98) !important;
   }
 
-  /* 隐藏导航按钮 */
-  .nav-button {
-    display: none;
-  }
-
-  /* 隐藏滚动提示 */
-  .scroll-hint {
-    display: none;
-  }
-
-  /* 隐藏页面指示器 */
+  /* 隐藏桌面端特有元素 */
+  .nav-button,
+  .scroll-hint,
   .page-indicator {
-    display: none;
+    display: none !important;
   }
 }
 
@@ -1090,20 +1138,81 @@ onUnmounted(() => {
     margin-left: -200px;
   }
 
+  .cards-container {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    height: 500px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform-style: preserve-3d;
+    perspective: 2000px;
+    overflow: visible;
+  }
+
+  .nav-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+  }
+
+  .nav-button:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.1);
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .nav-button.prev {
+    left: 20px;
+  }
+
+  .nav-button.next {
+    right: 20px;
+  }
+
+  /* 优化卡片动画 */
+  .link-card {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .link-card.active {
+    transition-delay: 0.1s;
+  }
+
+  /* 优化3D效果 */
   .card-content {
     transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .card-image {
     transform: translateZ(20px);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .card-info {
     transform: translateZ(30px);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .card-footer {
     transform: translateZ(40px);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
@@ -1236,12 +1345,13 @@ onUnmounted(() => {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  color: rgba(44, 62, 80, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
   font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  opacity: 0;
+  z-index: 100;
+  opacity: 1;
   transition: opacity 0.3s ease;
 }
 
@@ -1512,6 +1622,44 @@ onUnmounted(() => {
   background: transparent;
   letter-spacing: 1px;
   margin-top: 48px;
+}
+
+/* 修改序号指示器样式 */
+.card-index {
+  background: rgba(26, 115, 232, 0.9);
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.link-card.active .card-index {
+  opacity: 1;
+  bottom: -35px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .card-index {
+    padding: 2px 8px;
+    font-size: 0.85rem;
+  }
+  
+  .card-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* 添加调试样式 */
+.debug-index {
+  border: 2px solid red !important;
+  background: yellow !important;
+  color: black !important;
+  opacity: 1 !important;
 }
 </style>
 
