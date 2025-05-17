@@ -75,10 +75,92 @@ const getCardStyle = (index) => {
   }
 }
 
+const isMobile = ref(window.innerWidth <= 768)
+const isAnimating = ref(false)
+
+// 监听窗口大小变化
+onMounted(() => {
+  window.addEventListener('resize', () => {
+    isMobile.value = window.innerWidth <= 768
+  })
+})
+
+const handleTouchStart = (e) => {
+  if (e.touches.length === 1) {
+    touchStartY.value = e.touches[0].clientY
+    touchStartX.value = e.touches[0].clientX
+    touchStartTime.value = Date.now()
+  }
+}
+
+const handleTouchMove = (e) => {
+  if (!touchStartY.value || isAnimating.value) return
+  
+  const touchEndY = e.touches[0].clientY
+  const touchEndX = e.touches[0].clientX
+  const diffY = touchEndY - touchStartY.value
+  const diffX = touchEndX - touchStartX.value
+  
+  // 如果水平移动大于垂直移动，则不处理
+  if (Math.abs(diffX) > Math.abs(diffY)) return
+  
+  // 阻止默认滚动
+  e.preventDefault()
+  
+  // 计算当前滑动的卡片位置
+  const currentCard = document.querySelector('.link-card.active')
+  if (currentCard) {
+    const translateY = diffY * 0.5 // 减小移动距离，使动画更平滑
+    currentCard.style.transform = `translateX(-50%) translateY(${translateY}px)`
+  }
+}
+
+const handleTouchEnd = (e) => {
+  if (!touchStartY.value || isAnimating.value) return
+  
+  const touchEndY = e.changedTouches[0].clientY
+  const diffY = touchEndY - touchStartY.value
+  const timeDiff = Date.now() - touchStartTime.value
+  
+  // 重置当前卡片位置
+  const currentCard = document.querySelector('.link-card.active')
+  if (currentCard) {
+    currentCard.style.transform = 'translateX(-50%)'
+  }
+  
+  // 判断是否为快速滑动
+  const isQuickSwipe = Math.abs(diffY) > 30 && timeDiff < 300
+  
+  if (Math.abs(diffY) > 50 || isQuickSwipe) {
+    isAnimating.value = true
+    if (diffY > 0) {
+      prevCard()
+    } else {
+      nextCard()
+    }
+    setTimeout(() => {
+      isAnimating.value = false
+    }, 300) // 动画时间
+  }
+  
+  touchStartY.value = null
+  touchStartX.value = null
+  touchStartTime.value = null
+}
+
+const touchStartY = ref(null)
+const touchStartX = ref(null)
+const touchStartTime = ref(null)
+
 const handleCardClick = async (link, index) => {
-  currentIndex.value = index
-  await new Promise(resolve => setTimeout(resolve, 600))
-  goToLink(link)
+  if (isMobile.value) {
+    // 移动端直接在当前页面打开
+    window.location.href = link.url.startsWith('http') ? link.url : `http://${link.url}`
+  } else {
+    currentIndex.value = index
+    await new Promise(resolve => setTimeout(resolve, 600))
+    goToLink(link)
+  }
 }
 
 const prevCard = () => {
@@ -236,7 +318,12 @@ const goToLink = async (link) => {
   if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
     finalUrl = 'http://' + finalUrl
   }
-  window.open(finalUrl, '_blank')
+  
+  if (isMobile.value) {
+    window.location.href = finalUrl
+  } else {
+    window.open(finalUrl, '_blank')
+  }
 }
 
 const handleLogout = () => {
@@ -289,37 +376,6 @@ const handleImageError = (e) => {
   // 设置默认图片
   e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Found'
 }
-
-const handleTouchStart = (e) => {
-  if (e.touches.length === 1) {
-    touchStartY.value = e.touches[0].clientY
-  }
-}
-
-const handleTouchMove = (e) => {
-  if (!touchStartY.value) return
-  
-  const touchEndY = e.touches[0].clientY
-  const diff = touchEndY - touchStartY.value
-  
-  if (Math.abs(diff) > 50) { // 设置一个最小滑动距离阈值
-    if (diff > 0) {
-      prevCard()
-    } else {
-      nextCard()
-    }
-    touchStartY.value = null
-  }
-  
-  // 阻止默认滚动
-  e.preventDefault()
-}
-
-const handleTouchEnd = () => {
-  touchStartY.value = null
-}
-
-const touchStartY = ref(null)
 
 onMounted(() => {
   fetchLinks()
@@ -480,6 +536,16 @@ onUnmounted(() => {
         Copyright © {{ new Date().getFullYear() }} growdu
       </div>
     </footer>
+
+    <!-- 在 cards-container 内部添加页面指示器 -->
+    <div class="page-indicator" v-if="isMobile">
+      <div
+        v-for="(_, index) in visibleLinks"
+        :key="index"
+        class="page-indicator-dot"
+        :class="{ active: index === currentIndex }"
+      ></div>
+    </div>
   </div>
 </template>
 
@@ -900,7 +966,8 @@ onUnmounted(() => {
     min-height: calc(100vh - 200px);
     height: auto;
     padding-bottom: 60px;
-    touch-action: none; /* 禁用浏览器默认的触摸行为 */
+    touch-action: pan-x; /* 只允许水平方向的滚动 */
+    overflow: hidden;
   }
   
   .cards-container {
@@ -909,6 +976,7 @@ onUnmounted(() => {
     min-height: 500px;
     padding: 20px 0;
     overflow: visible;
+    perspective: none; /* 移动端禁用 3D 效果 */
   }
 
   .link-card {
@@ -918,25 +986,40 @@ onUnmounted(() => {
     margin: 0 auto;
     left: 50%;
     transform: translateX(-50%) !important;
-    transition: all 0.3s ease;
-    will-change: transform, opacity;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
     -webkit-transform: translateX(-50%) !important;
-    -webkit-transition: all 0.3s ease;
+    -webkit-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 
   .link-card.active {
-    transform: translateX(-50%) scale(1.05) !important;
-    -webkit-transform: translateX(-50%) scale(1.05) !important;
+    transform: translateX(-50%) !important;
+    -webkit-transform: translateX(-50%) !important;
+    opacity: 1;
+    visibility: visible;
+    z-index: 2;
+  }
+
+  .link-card:not(.active) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .card-content {
-    -webkit-transform: none !important;
     transform: none !important;
+    -webkit-transform: none !important;
+    transition: none;
   }
 
-  .card-image, .card-info, .card-footer {
-    -webkit-transform: none !important;
-    transform: none !important;
+  .card-image {
+    height: 200px;
+  }
+
+  .card-info {
+    padding: 1.2rem;
   }
 
   /* 优化触摸反馈 */
@@ -945,18 +1028,38 @@ onUnmounted(() => {
     -webkit-transform: translateX(-50%) scale(0.98) !important;
   }
 
-  .sidebar-left {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    top: auto;
-    z-index: 100;
-    border-radius: 12px 12px 0 0;
-    max-height: 60vh;
-    transform: translateY(calc(100% - 50px));
-    transition: transform 0.3s ease;
-    -webkit-overflow-scrolling: touch; /* 增加 iOS 滚动回弹 */
+  /* 移动端滑动提示 */
+  .scroll-hint {
+    bottom: 40px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+  }
+
+  /* 添加页面指示器 */
+  .page-indicator {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  .page-indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+  }
+
+  .page-indicator-dot.active {
+    background: #1a73e8;
+    transform: scale(1.2);
   }
 }
 
@@ -969,6 +1072,12 @@ onUnmounted(() => {
 
   .content {
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* iOS Safari 特定的动画优化 */
+  .link-card {
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
