@@ -991,17 +991,35 @@ onUnmounted(() => {
   .main-content {
     grid-template-columns: 1fr;
     padding: 0 1rem;
+    gap: 1rem;
   }
-  
+
+  .sidebar-left, .sidebar-right {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin-bottom: 1rem;
+  }
+
+  .sidebar-left {
+    order: 1;
+  }
+
   .content {
+    order: 3;
     min-height: calc(100vh - 200px);
     height: auto;
-    padding: 20px 0 60px;
+    padding: 0;
     perspective: none;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
+  .sidebar-right {
+    order: 2;
+    display: block;
+  }
+
   .cards-container {
     position: relative;
     height: auto;
@@ -1092,9 +1110,59 @@ onUnmounted(() => {
     margin-bottom: 0.5rem;
   }
 
-  /* 移动端点击反馈 */
-  .link-card:active {
-    transform: scale(0.98) !important;
+  /* 热门标签样式 */
+  .hot-links {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .hot-links h2 {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    margin-bottom: 0.8rem;
+  }
+
+  .hot-links ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .hot-links li {
+    padding: 0;
+    border: none;
+    margin: 0;
+  }
+
+  .hot-links a {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    background: rgba(26, 115, 232, 0.1);
+    border-radius: 15px;
+    color: #1a73e8;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .hot-links .visit-count {
+    font-size: 0.8rem;
+    color: #666;
+    margin-left: 4px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+
+  .hot-links a:hover {
+    background: rgba(26, 115, 232, 0.2);
   }
 
   /* 隐藏桌面端特有元素 */
@@ -1106,6 +1174,11 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
+  .main-content {
+    padding: 0 0.8rem;
+    gap: 0.8rem;
+  }
+
   .card-image {
     height: 160px;
   }
@@ -1137,6 +1210,29 @@ onUnmounted(() => {
 
   .category-tag {
     max-width: 120px;
+  }
+
+  .hot-links {
+    padding: 0.8rem;
+  }
+
+  .hot-links h2 {
+    font-size: 1rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .hot-links a {
+    padding: 3px 10px;
+    font-size: 0.85rem;
+  }
+
+  .hot-links .visit-count {
+    font-size: 0.75rem;
+    padding: 1px 4px;
+  }
+
+  .hot-links ul {
+    gap: 6px;
   }
 }
 
