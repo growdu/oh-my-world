@@ -290,13 +290,47 @@ const handleImageError = (e) => {
   e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Found'
 }
 
+const handleTouchStart = (e) => {
+  if (e.touches.length === 1) {
+    touchStartY.value = e.touches[0].clientY
+  }
+}
+
+const handleTouchMove = (e) => {
+  if (!touchStartY.value) return
+  
+  const touchEndY = e.touches[0].clientY
+  const diff = touchEndY - touchStartY.value
+  
+  if (Math.abs(diff) > 50) { // 设置一个最小滑动距离阈值
+    if (diff > 0) {
+      prevCard()
+    } else {
+      nextCard()
+    }
+    touchStartY.value = null
+  }
+  
+  // 阻止默认滚动
+  e.preventDefault()
+}
+
+const handleTouchEnd = () => {
+  touchStartY.value = null
+}
+
+const touchStartY = ref(null)
+
 onMounted(() => {
   fetchLinks()
   window.addEventListener('keydown', handleKeydown)
-  // 添加滚轮事件监听
+  // 添加触摸事件监听
   const content = document.querySelector('.content')
   if (content) {
     content.addEventListener('wheel', handleWheel, { passive: false })
+    content.addEventListener('touchstart', handleTouchStart, { passive: false })
+    content.addEventListener('touchmove', handleTouchMove, { passive: false })
+    content.addEventListener('touchend', handleTouchEnd, { passive: false })
   }
 
   if (localStorage.getItem('isAdmin') !== 'true') {
@@ -306,10 +340,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
-  // 移除滚轮事件监听
+  // 移除触摸事件监听
   const content = document.querySelector('.content')
   if (content) {
     content.removeEventListener('wheel', handleWheel)
+    content.removeEventListener('touchstart', handleTouchStart)
+    content.removeEventListener('touchmove', handleTouchMove)
+    content.removeEventListener('touchend', handleTouchEnd)
   }
 })
 </script>
@@ -858,6 +895,56 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     padding: 0 1rem;
   }
+  
+  .content {
+    min-height: calc(100vh - 200px);
+    height: auto;
+    padding-bottom: 60px;
+    touch-action: none; /* 禁用浏览器默认的触摸行为 */
+  }
+  
+  .cards-container {
+    position: relative;
+    height: auto;
+    min-height: 500px;
+    padding: 20px 0;
+    overflow: visible;
+  }
+
+  .link-card {
+    position: absolute;
+    width: 90%;
+    max-width: 400px;
+    margin: 0 auto;
+    left: 50%;
+    transform: translateX(-50%) !important;
+    transition: all 0.3s ease;
+    will-change: transform, opacity;
+    -webkit-transform: translateX(-50%) !important;
+    -webkit-transition: all 0.3s ease;
+  }
+
+  .link-card.active {
+    transform: translateX(-50%) scale(1.05) !important;
+    -webkit-transform: translateX(-50%) scale(1.05) !important;
+  }
+
+  .card-content {
+    -webkit-transform: none !important;
+    transform: none !important;
+  }
+
+  .card-image, .card-info, .card-footer {
+    -webkit-transform: none !important;
+    transform: none !important;
+  }
+
+  /* 优化触摸反馈 */
+  .link-card:active {
+    transform: translateX(-50%) scale(0.98) !important;
+    -webkit-transform: translateX(-50%) scale(0.98) !important;
+  }
+
   .sidebar-left {
     position: fixed;
     bottom: 0;
@@ -869,47 +956,19 @@ onUnmounted(() => {
     max-height: 60vh;
     transform: translateY(calc(100% - 50px));
     transition: transform 0.3s ease;
+    -webkit-overflow-scrolling: touch; /* 增加 iOS 滚动回弹 */
   }
-  .sidebar-left:hover,
-  .sidebar-left:focus-within {
-    transform: translateY(0);
-  }
-  .sidebar-left::before {
-    content: '分类';
-    display: block;
-    text-align: center;
-    padding: 0.5rem;
-    font-weight: 600;
-    color: #2c3e50;
-    border-bottom: 1px solid #eee;
-  }
-  .cards-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: auto;
-    padding: 1rem 0;
-  }
+}
+
+/* 针对 iOS Safari 的特殊处理 */
+@supports (-webkit-touch-callout: none) {
   .link-card {
-    position: static;
-    width: 100%;
-    max-width: 400px;
-    margin: 1rem 0;
-    transform: none !important;
-    opacity: 1 !important;
-    filter: none !important;
-    left: auto;
-    margin-left: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
-  .nav-button {
-    display: none;
-  }
-  .card-image {
-    height: 180px;
-  }
-  .card-info {
-    padding: 1rem;
+
+  .content {
+    -webkit-overflow-scrolling: touch;
   }
 }
 
