@@ -1028,8 +1028,9 @@ onUnmounted(() => {
   }
 
   .card-content {
-    flex-direction: row;
-    height: 160px;
+    flex-direction: column;
+    height: auto;
+    min-height: 160px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 12px;
     overflow: hidden;
@@ -1037,34 +1038,58 @@ onUnmounted(() => {
   }
 
   .card-image {
-    width: 160px;
-    height: 160px;
-    flex-shrink: 0;
+    width: 100%;
+    height: 200px;
   }
 
   .card-info {
     padding: 1rem;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     flex: 1;
   }
 
   .link-description-full {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
     font-size: 0.9rem;
-    margin: 0.5rem 0;
+    margin: 0.8rem 0;
+    overflow: visible;
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+    white-space: normal;
   }
 
   .card-footer {
-    margin-top: auto;
+    margin-top: 1rem;
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
     align-items: center;
-    font-size: 0.85rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .visit-count, .card-index, .category-tag {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .category-tag {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .link-card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
   }
 
   /* 移动端点击反馈 */
@@ -1077,6 +1102,41 @@ onUnmounted(() => {
   .scroll-hint,
   .page-indicator {
     display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-image {
+    height: 160px;
+  }
+
+  .card-info {
+    padding: 0.8rem;
+  }
+
+  .link-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .link-description-full {
+    font-size: 0.85rem;
+    margin: 0.6rem 0;
+  }
+
+  .card-footer {
+    margin-top: 0.8rem;
+    padding-top: 0.4rem;
+    gap: 6px;
+  }
+
+  .visit-count, .card-index, .category-tag {
+    font-size: 0.75rem;
+    padding: 1px 6px;
+  }
+
+  .category-tag {
+    max-width: 120px;
   }
 }
 
